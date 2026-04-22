@@ -100,7 +100,7 @@ void ReadMap() {
 void Decide() {
   // TODO (student): Implement me!
 
-  // First, analyze the current map to update our knowledge
+  // First pass: Look for obvious moves (0 remaining mines or all remaining cells are mines)
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < columns; j++) {
       if (current_map[i][j] >= '0' && current_map[i][j] <= '8') {
@@ -151,7 +151,7 @@ void Decide() {
     }
   }
 
-  // Try auto-explore on visited cells with numbers
+  // Second pass: Try auto-explore on visited cells with numbers
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < columns; j++) {
       if (current_map[i][j] >= '1' && current_map[i][j] <= '8') {
@@ -180,18 +180,35 @@ void Decide() {
   }
 
   // If no logical moves found, pick a random unknown cell
-  std::vector<std::pair<int, int>> unknown_cells;
+  // Prefer cells on the edge or corners as they have fewer neighbors
+  std::vector<std::pair<int, int>> edge_cells;
+  std::vector<std::pair<int, int>> corner_cells;
+  std::vector<std::pair<int, int>> middle_cells;
+
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < columns; j++) {
       if (current_map[i][j] == '?') {
-        unknown_cells.push_back({i, j});
+        if ((i == 0 || i == rows-1) && (j == 0 || j == columns-1)) {
+          corner_cells.push_back({i, j});
+        } else if (i == 0 || i == rows-1 || j == 0 || j == columns-1) {
+          edge_cells.push_back({i, j});
+        } else {
+          middle_cells.push_back({i, j});
+        }
       }
     }
   }
 
-  if (!unknown_cells.empty()) {
-    int idx = std::rand() % unknown_cells.size();
-    Execute(unknown_cells[idx].first, unknown_cells[idx].second, 0);
+  // Pick from corners first, then edges, then middle
+  if (!corner_cells.empty()) {
+    int idx = std::rand() % corner_cells.size();
+    Execute(corner_cells[idx].first, corner_cells[idx].second, 0);
+  } else if (!edge_cells.empty()) {
+    int idx = std::rand() % edge_cells.size();
+    Execute(edge_cells[idx].first, edge_cells[idx].second, 0);
+  } else if (!middle_cells.empty()) {
+    int idx = std::rand() % middle_cells.size();
+    Execute(middle_cells[idx].first, middle_cells[idx].second, 0);
   }
 }
 
