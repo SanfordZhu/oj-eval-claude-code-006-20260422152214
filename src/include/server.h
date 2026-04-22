@@ -16,6 +16,14 @@ int total_mines;  // The count of mines of the game map. You MUST NOT modify its
                   // variable in function InitMap. It will be used in the advanced task.
 int game_state;  // The state of the game, 0 for continuing, 1 for winning, -1 for losing. You MUST NOT modify its name.
 
+// Global variables for storing game state
+bool mine_map[30][30];           // true if there's a mine at (i,j)
+int visited[30][30];             // 0: unvisited, 1: visited
+bool marked[30][30];             // true if marked as mine
+int mine_count[30][30];          // number of adjacent mines for each cell
+int visited_count;               // number of visited non-mine cells
+int correctly_marked_count;      // number of correctly marked mines
+
 /**
  * @brief The definition of function InitMap()
  *
@@ -31,6 +39,44 @@ int game_state;  // The state of the game, 0 for continuing, 1 for winning, -1 f
 void InitMap() {
   std::cin >> rows >> columns;
   // TODO (student): Implement me!
+  // Initialize global variables
+  total_mines = 0;
+  game_state = 0;
+  visited_count = 0;
+  correctly_marked_count = 0;
+
+  // Read the map and store mine positions
+  for (int i = 0; i < rows; i++) {
+    std::string row;
+    std::cin >> row;
+    for (int j = 0; j < columns; j++) {
+      mine_map[i][j] = (row[j] == 'X');
+      visited[i][j] = 0;
+      marked[i][j] = false;
+      if (row[j] == 'X') {
+        total_mines++;
+      }
+    }
+  }
+
+  // Calculate mine counts for each cell
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < columns; j++) {
+      if (!mine_map[i][j]) {
+        mine_count[i][j] = 0;
+        // Count adjacent mines
+        for (int di = -1; di <= 1; di++) {
+          for (int dj = -1; dj <= 1; dj++) {
+            int ni = i + di;
+            int nj = j + dj;
+            if (ni >= 0 && ni < rows && nj >= 0 && nj < columns && mine_map[ni][nj]) {
+              mine_count[i][j]++;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -65,6 +111,45 @@ void InitMap() {
  */
 void VisitBlock(int r, int c) {
   // TODO (student): Implement me!
+  // Check if coordinates are valid
+  if (r < 0 || r >= rows || c < 0 || c >= columns) {
+    return;
+  }
+
+  // Check if already visited or marked
+  if (visited[r][c] || marked[r][c]) {
+    return;
+  }
+
+  // Visit the block
+  visited[r][c] = 1;
+
+  // If it's a mine, game over
+  if (mine_map[r][c]) {
+    game_state = -1;
+    return;
+  }
+
+  // Increment visited count
+  visited_count++;
+
+  // If mine count is 0, auto-visit adjacent cells
+  if (mine_count[r][c] == 0) {
+    for (int di = -1; di <= 1; di++) {
+      for (int dj = -1; dj <= 1; dj++) {
+        int ni = r + di;
+        int nj = c + dj;
+        if (ni >= 0 && ni < rows && nj >= 0 && nj < columns && !visited[ni][nj] && !marked[ni][nj]) {
+          VisitBlock(ni, nj);
+        }
+      }
+    }
+  }
+
+  // Check if game is won
+  if (visited_count == rows * columns - total_mines) {
+    game_state = 1;
+  }
 }
 
 /**
@@ -102,6 +187,27 @@ void VisitBlock(int r, int c) {
  */
 void MarkMine(int r, int c) {
   // TODO (student): Implement me!
+  // Check if coordinates are valid
+  if (r < 0 || r >= rows || c < 0 || c >= columns) {
+    return;
+  }
+
+  // Check if already visited or marked
+  if (visited[r][c] || marked[r][c]) {
+    return;
+  }
+
+  // Mark the block
+  marked[r][c] = true;
+
+  // If it's not a mine, game over
+  if (!mine_map[r][c]) {
+    game_state = -1;
+    return;
+  }
+
+  // Increment correctly marked count
+  correctly_marked_count++;
 }
 
 /**
@@ -122,6 +228,40 @@ void MarkMine(int r, int c) {
  */
 void AutoExplore(int r, int c) {
   // TODO (student): Implement me!
+  // Check if coordinates are valid
+  if (r < 0 || r >= rows || c < 0 || c >= columns) {
+    return;
+  }
+
+  // Check if the block is visited and is a non-mine
+  if (!visited[r][c] || mine_map[r][c]) {
+    return;
+  }
+
+  // Count marked mines around this block
+  int marked_mines_around = 0;
+  for (int di = -1; di <= 1; di++) {
+    for (int dj = -1; dj <= 1; dj++) {
+      int ni = r + di;
+      int nj = c + dj;
+      if (ni >= 0 && ni < rows && nj >= 0 && nj < columns && marked[ni][nj]) {
+        marked_mines_around++;
+      }
+    }
+  }
+
+  // If the number of marked mines equals the mine count, visit all unvisited non-mine neighbors
+  if (marked_mines_around == mine_count[r][c]) {
+    for (int di = -1; di <= 1; di++) {
+      for (int dj = -1; dj <= 1; dj++) {
+        int ni = r + di;
+        int nj = c + dj;
+        if (ni >= 0 && ni < rows && nj >= 0 && nj < columns && !visited[ni][nj] && !marked[ni][nj]) {
+          VisitBlock(ni, nj);
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -135,6 +275,22 @@ void AutoExplore(int r, int c) {
  */
 void ExitGame() {
   // TODO (student): Implement me!
+  // Print game result
+  if (game_state == 1) {
+    std::cout << "YOU WIN!" << std::endl;
+  } else {
+    std::cout << "GAME OVER!" << std::endl;
+  }
+
+  // Print visit count and marked mine count
+  if (game_state == 1) {
+    // Victory: all mines are considered correctly marked
+    std::cout << visited_count << " " << total_mines << std::endl;
+  } else {
+    // Defeat: only count correctly marked mines
+    std::cout << visited_count << " " << correctly_marked_count << std::endl;
+  }
+
   exit(0);  // Exit the game immediately
 }
 
@@ -164,6 +320,33 @@ void ExitGame() {
  */
 void PrintMap() {
   // TODO (student): Implement me!
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < columns; j++) {
+      if (game_state == 1 && mine_map[i][j]) {
+        // Victory state: show all mines as @
+        std::cout << '@';
+      } else if (marked[i][j]) {
+        // Marked state
+        if (game_state == -1 && !mine_map[i][j]) {
+          // Game over due to marking non-mine
+          std::cout << 'X';
+        } else {
+          std::cout << '@';
+        }
+      } else if (visited[i][j]) {
+        // Visited state
+        if (mine_map[i][j]) {
+          std::cout << 'X';
+        } else {
+          std::cout << mine_count[i][j];
+        }
+      } else {
+        // Unvisited state
+        std::cout << '?';
+      }
+    }
+    std::cout << std::endl;
+  }
 }
 
 #endif
